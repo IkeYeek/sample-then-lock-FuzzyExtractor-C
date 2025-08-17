@@ -1,0 +1,4 @@
+!.gitignore
+!monocypher.c
+!monocypher.h
+!optional

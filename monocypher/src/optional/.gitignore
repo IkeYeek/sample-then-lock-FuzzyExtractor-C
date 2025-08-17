@@ -1,0 +1,3 @@
+!.gitignore
+!monocypher-ed25519.c
+!monocypher-ed25519.h

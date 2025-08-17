@@ -1,0 +1,6 @@
+!.gitignore
+!lib
+!src
+!AUTHORS.md
+!README.md
+!makefile
