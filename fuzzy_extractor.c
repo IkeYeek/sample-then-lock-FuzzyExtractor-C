@@ -31,7 +31,6 @@ void get_random_sample_mask(byte_array *holder, uint32_t n) {
 
   uint32_t total = holder->len * 8u;
 
-  /* trivial cases */
   if (n == 0) {
     memset(holder->bytes, 0, holder->len);
     return;
@@ -155,9 +154,14 @@ void fuzzy_extractor_init(fuzzy_extractor *fe, fuzzy_extractor_params params,
   fe->soa.helpers = helpers;
 }
 
-// TODO: add sanity checks
 void fuzzy_extractor_gen(fuzzy_extractor *fe, byte_array *r, byte_array *key,
                          byte_array *temp_key_holder) {
+  if (r->len != fe->params.r_bytes) {
+    FAIL("wrong r buffer len");
+  }
+  if (key->len != temp_key_holder->len) {
+    FAIL("wrong temp_key_holder len");
+  }
   // first we choose a random r
   get_random_bytes(r);
   // then for every l
@@ -173,20 +177,30 @@ void fuzzy_extractor_gen(fuzzy_extractor *fe, byte_array *r, byte_array *key,
   }
 }
 
-// TODO: add sanity checks
 bool fuzzy_extractor_rep(fuzzy_extractor *fe, byte_array *r_buff,
                          byte_array *key, byte_array *temp_key_holder,
                          byte_array *temp_cipher_holder) {
+  if (r_buff->len != fe->params.r_bytes) {
+    FAIL("wrong r buffer len");
+  }
+  if (key->len != temp_key_holder->len) {
+    FAIL("wrong temp_key_holder len");
+  }
   for (uint32_t l_idx = 0; l_idx < fe->params.l_nb; l_idx++) {
+    // we load the right parameters from our soa
     byte_array cipher = fe->soa.ciphers[l_idx];
     byte_array nonce = fe->soa.nonces[l_idx];
     byte_array helper = fe->soa.helpers[l_idx];
     digital_locker curr_locked;
+    // initialize the current lock
     dl_init_locked(&curr_locked, &nonce, &cipher);
     byte_array_copy_bytes(temp_key_holder, key);
     byte_array_padded_and(temp_key_holder, &helper);
     digital_locker unlocked;
+    // and the unlocked one
     dl_init_unlocked(&unlocked, r_buff);
+    // then try to unlock the locked into the unlocked one and return true if it
+    // works
     if (dl_unlock(&unlocked, temp_cipher_holder, &curr_locked, temp_key_holder,
                   fe->params.security_param)) {
       return true;

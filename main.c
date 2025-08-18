@@ -173,17 +173,17 @@ void test_dl() {
 }
 
 int main() {
-  uint32_t l_val = 16;
-  uint32_t ciphers_len = 17;
+  uint32_t l_val = 837;
+  uint32_t ciphers_len = 20;
   uint32_t nonces_len = 16;
   uint32_t key_len = 16;
-  uint32_t helpers_len = 17;
+  uint32_t helpers_len = 16;
 
   fuzzy_extractor_params params = {
       .l_nb = l_val,
-      .k_bytes = 12,
+      .k_bytes = 8,
       .r_bytes = 16,
-      .security_param = 1,
+      .security_param = 4,
   };
 
   uint8_t ciphers_raw[l_val][ciphers_len];
@@ -227,26 +227,52 @@ int main() {
       .len = ciphers_len,
       .bytes = temp_cipher_buff,
   };
-  byte_array *key_p = noise_simple(&key, 4);
+
+  byte_array *key_p = noise_simple(&key, 10);
+
   fuzzy_extractor_gen(&fe, &r, &key, &temp_key);
 
-  // for (uint32_t l_idx = 0; l_idx < params.l_nb; l_idx++) {
-  //   printf("Lock N° %d/%d\n", l_idx + 1, params.l_nb);
-  //   printf("\tNonce: %s\n",
-  //          to_hex(fe.soa.nonces[l_idx].bytes, fe.soa.nonces[l_idx].len));
-  //   printf("\tCipher: %s\n",
-  //          to_hex(fe.soa.ciphers[l_idx].bytes, fe.soa.ciphers[l_idx].len));
-  //   printf("\tHelper: %s\n",
-  //          to_hex(fe.soa.helpers[l_idx].bytes, fe.soa.helpers[l_idx].len));
-  // }
+#ifdef VERBOSE
+  for (uint32_t l_idx = 0; l_idx < params.l_nb; l_idx++) {
+    char *nonce_hex =
+        to_hex(fe.soa.nonces[l_idx].bytes, fe.soa.nonces[l_idx].len);
+    char *cipher_hex =
+        to_hex(fe.soa.ciphers[l_idx].bytes, fe.soa.ciphers[l_idx].len);
+    char *helper_hex =
+        to_hex(fe.soa.helpers[l_idx].bytes, fe.soa.helpers[l_idx].len);
 
-  printf("Key a: %s\nKey b: %s\nr=%s\n", to_hex(key.bytes, key.len),
-         to_hex(key_p->bytes, key_p->len), to_hex(r.bytes, r.len));
-  if (fuzzy_extractor_rep(&fe, &r, key_p, &temp_key, &temp_cipher)) {
-    printf("unlocked!\nr=%s\n", to_hex(r.bytes, r.len));
-  } else {
-    printf("unlocking failed!\n");
+    printf("Lock N° %d/%d\n", l_idx + 1, params.l_nb);
+    printf("\tNonce: %s\n", nonce_hex);
+    printf("\tCipher: %s\n", cipher_hex);
+    printf("\tHelper: %s\n", helper_hex);
+
+    free(nonce_hex);
+    free(cipher_hex);
+    free(helper_hex);
   }
+#endif /* ifdef VERBOSE */
+
+  char *key_hex = to_hex(key.bytes, key.len);
+  char *keyp_hex = to_hex(key_p->bytes, key_p->len);
+  char *r_hex = to_hex(r.bytes, r.len);
+
+  printf("Key a: %s\nKey b: %s\nr=%s\n", key_hex, keyp_hex, r_hex);
+
+  free(key_hex);
+  free(keyp_hex);
+  free(r_hex);
+
+  if (fuzzy_extractor_rep(&fe, &r, key_p, &temp_key, &temp_cipher)) {
+    char *r_hex2 = to_hex(r.bytes, r.len);
+    printf("unlocked!\nr=%s\ndist between a and b:%d\n", r_hex2,
+           hamming_simple(&key, key_p));
+    free(r_hex2);
+  } else {
+    printf("unlocking failed!\ndist between a and b:%d\n",
+           hamming_simple(&key, key_p));
+  }
+
+  byte_array_free(key_p);
 
   return 0;
 }
