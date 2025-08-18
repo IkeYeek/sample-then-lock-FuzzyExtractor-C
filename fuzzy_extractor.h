@@ -24,12 +24,17 @@ typedef struct byte_array_s {
  * Fills `holder` with random bytes
  */
 void get_random_bytes(byte_array *holder);
+/**
+ * Returns a mask with exactly `n` uniformely chosen bits set to 1
+ */
+void get_random_sample_mask(byte_array *holder, uint32_t n);
 /*
  * performs binary XOR `a` ^ `b`. `a` can be longer than `b`, in that case
  * exceeding bytes from `a` will stay the same (same as XORing with `b` padded
  * with 0s)
  */
 void byte_array_padded_xor(byte_array *a, byte_array *b);
+void byte_array_padded_and(byte_array *a, byte_array *b);
 /*
  * ensures `bar` has at least `n` padding bytes (bytes set to 0)
  */
@@ -95,13 +100,22 @@ typedef struct fuzzy_extractor_params_s {
  * Struct of Arrays.
  */
 typedef struct fuzzy_extractor_soa_s {
-  byte_array **ciphers;
-  byte_array **nouns;
-  byte_array **helpers;
+  byte_array *ciphers;
+  byte_array *nonces;
+  byte_array *helpers;
 } fuzzy_extractor_soa;
 
 typedef struct fuzzy_extractor_s {
   fuzzy_extractor_params params;
   fuzzy_extractor_soa soa;
 } fuzzy_extractor;
+
+void fuzzy_extractor_init(fuzzy_extractor *fe, fuzzy_extractor_params params,
+                          byte_array *ciphers, byte_array *nonces,
+                          byte_array *helpers);
+void fuzzy_extractor_gen(fuzzy_extractor *fe, byte_array *r, byte_array *key,
+                         byte_array *temp_key_holder);
+bool fuzzy_extractor_rep(fuzzy_extractor *fe, byte_array *r_buff,
+                         byte_array *key, byte_array *temp_key_holder,
+                         byte_array *temp_cipher_holder);
 #endif

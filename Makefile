@@ -8,3 +8,6 @@ fuzzy_extractor.o: fuzzy_extractor.c
 
 monocypher/lib/libmonocypher.a:
 	cd monocypher && make
+
+clean:
+	rm main fuzzy_extractor.o

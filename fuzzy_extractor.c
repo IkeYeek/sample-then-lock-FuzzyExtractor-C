@@ -10,9 +10,67 @@
   fprintf(stderr, "%s (file: %s, line: %d)\n", msg, __FILE__, __LINE__);       \
   exit(1);
 
+void get_random_bytes(byte_array *holder) {
+  ssize_t random_bytes = getrandom(holder->bytes, holder->len, 0);
+  if (random_bytes != holder->len) {
+    FAIL("couldn't generate enough bytes");
+  }
+}
+
+static uint32_t random_u32(void) {
+  uint8_t buf[4];
+  byte_array rnd = {4, buf};
+  get_random_bytes(&rnd);
+  return (uint32_t)buf[0] | ((uint32_t)buf[1] << 8) | ((uint32_t)buf[2] << 16) |
+         ((uint32_t)buf[3] << 24);
+}
+
+void get_random_sample_mask(byte_array *holder, uint32_t n) {
+  if (!holder || holder->len == 0)
+    return;
+
+  uint32_t total = holder->len * 8u;
+
+  /* trivial cases */
+  if (n == 0) {
+    memset(holder->bytes, 0, holder->len);
+    return;
+  }
+  if (n >= total) {
+    memset(holder->bytes, 0xFF, holder->len);
+    return;
+  }
+
+  memset(holder->bytes, 0, holder->len);
+
+  uint32_t remaining = total;
+  uint32_t to_pick = n;
+  for (uint32_t idx = 0; idx < total && to_pick > 0; ++idx) {
+    uint32_t r;
+    uint32_t limit = UINT32_MAX - (UINT32_MAX % remaining);
+    do {
+      r = random_u32();
+    } while (r >= limit);
+    r %= remaining;
+
+    if (r < to_pick) {
+      holder->bytes[idx >> 3] |= (uint8_t)(1u << (idx & 7));
+      --to_pick;
+    }
+
+    --remaining;
+  }
+}
+
 void byte_array_padded_xor(byte_array *a, byte_array *b) {
   for (uint32_t i = 0; i < a->len && i < b->len; i++) {
     a->bytes[i] = a->bytes[i] ^ b->bytes[i];
+  }
+}
+
+void byte_array_padded_and(byte_array *a, byte_array *b) {
+  for (uint32_t i = 0; i < a->len && i < b->len; i++) {
+    a->bytes[i] = a->bytes[i] & b->bytes[i];
   }
 }
 
@@ -88,9 +146,51 @@ bool dl_unlock(digital_locker *unlocked, byte_array *computed_cipher,
   return false;
 }
 
-void get_random_bytes(byte_array *holder) {
-  ssize_t random_bytes = getrandom(holder->bytes, holder->len, 0);
-  if (random_bytes != holder->len) {
-    FAIL("couldn't generate enough bytes");
+void fuzzy_extractor_init(fuzzy_extractor *fe, fuzzy_extractor_params params,
+                          byte_array *ciphers, byte_array *nonces,
+                          byte_array *helpers) {
+  fe->params = params;
+  fe->soa.ciphers = ciphers;
+  fe->soa.nonces = nonces;
+  fe->soa.helpers = helpers;
+}
+
+// TODO: add sanity checks
+void fuzzy_extractor_gen(fuzzy_extractor *fe, byte_array *r, byte_array *key,
+                         byte_array *temp_key_holder) {
+  // first we choose a random r
+  get_random_bytes(r);
+  // then for every l
+  for (uint32_t l_idx = 0; l_idx < fe->params.l_nb; l_idx++) {
+    // we get a random sample mask of size k
+    get_random_sample_mask(&fe->soa.helpers[l_idx], fe->params.k_bytes * 8);
+    // then we make a mask of our key
+    byte_array_copy_bytes(temp_key_holder, key);
+    byte_array_padded_and(temp_key_holder, &fe->soa.helpers[l_idx]);
+    digital_locker curr_lock;
+    dl_init_locked(&curr_lock, &fe->soa.nonces[l_idx], &fe->soa.ciphers[l_idx]);
+    dl_lock(&curr_lock, temp_key_holder, r, fe->params.security_param);
   }
+}
+
+// TODO: add sanity checks
+bool fuzzy_extractor_rep(fuzzy_extractor *fe, byte_array *r_buff,
+                         byte_array *key, byte_array *temp_key_holder,
+                         byte_array *temp_cipher_holder) {
+  for (uint32_t l_idx = 0; l_idx < fe->params.l_nb; l_idx++) {
+    byte_array cipher = fe->soa.ciphers[l_idx];
+    byte_array nonce = fe->soa.nonces[l_idx];
+    byte_array helper = fe->soa.helpers[l_idx];
+    digital_locker curr_locked;
+    dl_init_locked(&curr_locked, &nonce, &cipher);
+    byte_array_copy_bytes(temp_key_holder, key);
+    byte_array_padded_and(temp_key_holder, &helper);
+    digital_locker unlocked;
+    dl_init_unlocked(&unlocked, r_buff);
+    if (dl_unlock(&unlocked, temp_cipher_holder, &curr_locked, temp_key_holder,
+                  fe->params.security_param)) {
+      return true;
+    }
+  }
+  return false;
 }
