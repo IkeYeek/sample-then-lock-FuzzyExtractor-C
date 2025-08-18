@@ -1,5 +1,7 @@
 *
 !.gitignore
-!main.c
 !Makefile
 !monocypher
+!main.c
+!fuzzy_extractor.c
+!fuzzy_extractor.h
