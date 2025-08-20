@@ -173,7 +173,7 @@ void test_dl() {
 }
 
 int main() {
-  uint32_t l_val = 837;
+  uint32_t l_val = 3500;
   uint32_t ciphers_len = 20;
   uint32_t nonces_len = 16;
   uint32_t key_len = 16;
@@ -186,20 +186,23 @@ int main() {
       .security_param = 4,
   };
 
-  uint8_t ciphers_raw[l_val][ciphers_len];
-  uint8_t nonces_raw[l_val][nonces_len];
-  uint8_t helpers_raw[l_val][helpers_len];
+  uint8_t **ciphers_raw = malloc(l_val * sizeof(uint8_t *));
+  uint8_t **nonces_raw = malloc(l_val * sizeof(uint8_t *));
+  uint8_t **helpers_raw = malloc(l_val * sizeof(uint8_t *));
 
-  byte_array ciphers[l_val];
-  byte_array nonces[l_val];
-  byte_array helpers[l_val];
+  byte_array *ciphers = malloc(sizeof(byte_array) * l_val);
+  byte_array *nonces = malloc(sizeof(byte_array) * l_val);
+  byte_array *helpers = malloc(sizeof(byte_array) * l_val);
 
   for (uint32_t i = 0; i < params.l_nb; i++) {
     ciphers[i].len = ciphers_len;
+    ciphers_raw[i] = malloc(ciphers_len);
     ciphers[i].bytes = ciphers_raw[i];
     nonces[i].len = nonces_len;
+    nonces_raw[i] = malloc(nonces_len);
     nonces[i].bytes = nonces_raw[i];
     helpers[i].len = helpers_len;
+    helpers_raw[i] = malloc(helpers_len);
     helpers[i].bytes = helpers_raw[i];
   }
 
@@ -228,7 +231,7 @@ int main() {
       .bytes = temp_cipher_buff,
   };
 
-  byte_array *key_p = noise_simple(&key, 10);
+  byte_array *key_p = noise_simple(&key, 8);
 
   fuzzy_extractor_gen(&fe, &r, &key, &temp_key);
 

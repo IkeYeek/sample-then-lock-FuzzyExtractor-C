@@ -122,8 +122,8 @@ library: static-library dynamic-library
 static-library : lib/libmonocypher.a
 dynamic-library: lib/libmonocypher.so lib/$(SONAME)
 
-MAIN_O=lib/monocypher.o lib/monocypher-ed25519.o
-MAIN_I=-I src -I src/optional
+MAIN_O=lib/monocypher.o
+MAIN_I=-I src
 
 lib/libmonocypher.a: $(MAIN_O)
 	$(AR) cr $@ $(MAIN_O)
